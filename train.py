@@ -186,7 +186,7 @@ if __name__ == '__main__':
                 cce_loss += loss.item() * args.batch_mul
             loss.backward()
             _, predicted = outputs[1].max(1)
-            diciding += sum(outputs[0].eq(dicider.float()).cpu().detach().numpy().flatten())
+            diciding += sum(outputs[0].round().eq(dicider.float()).cpu().detach().numpy().flatten())
             total += targets.size(0)
             correct += sum(predicted.eq(targets).cpu().detach().numpy().flatten())
             lfs = (batch_idx + 1) % args.batch_mul
@@ -248,7 +248,7 @@ if __name__ == '__main__':
                     loss = ccecriterion(outputs[1], targets.long())
                     cce_loss += loss.item()
                 _, predicted = outputs[1].max(1)
-                diciding += sum(outputs[0].eq(dicider.float()).cpu().detach().numpy().flatten())
+                diciding += sum(outputs[0].round().eq(dicider.float()).cpu().detach().numpy().flatten())
                 total += targets.size(0)
                 correct += sum(predicted.eq(targets).cpu().detach().numpy().flatten())
 
