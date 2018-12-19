@@ -60,7 +60,7 @@ if __name__ == '__main__':
               '\033[31m', '\033[32m', '\033[33m', '\033[34m', '\033[35m',
               '\033[36m', '\033[37m', '\033[91m', '\033[94m', '\033[95m']
     args = DotDict({
-        'batch_size': 24,
+        'batch_size': 1,
         'batch_mul': 24,
         'val_batch_size': 1,
         'cuda': True,
@@ -176,18 +176,13 @@ if __name__ == '__main__':
         for batch_idx, (inputs, dicider, targets) in enumerate(trainloader):
             inputs, targets = inputs.to('cuda'), targets.to('cuda')
             dicider = dicider.to('cuda')
-            # inputs = normalize(inputs)
             outputs = model(inputs)
-            # targets = torch.cat((targets, targets, targets, targets, targets))
-
-            # bs, ncrops, c, h, w = inputs.size()
-            # outputs = outputs.view(bs, ncrops, -1).mean(1)
 
             if dicider.cpu().detach().numpy()[0] == 0:
-                loss = bcecriterion(outputs[0], dicider.float())
+                loss = bcecriterion(outputs[0], dicider.float()) / args.batch_mul
                 bce_loss += loss.item() * args.batch_mul
             else:
-                loss = ccecriterion(outputs[1], targets.long())
+                loss = ccecriterion(outputs[1], targets.long()) / args.batch_mul
                 cce_loss += loss.item() * args.batch_mul
             loss.backward()
             _, predicted = outputs[1].max(1)
@@ -248,10 +243,10 @@ if __name__ == '__main__':
                 outputs = model(inputs)
                 if dicider.cpu().detach().numpy()[0] == 0:
                     loss = bcecriterion(outputs[0], dicider.float())
-                    bce_loss += loss.item() * args.batch_mul
+                    bce_loss += loss.item()
                 else:
                     loss = ccecriterion(outputs[1], targets.long())
-                    cce_loss += loss.item() * args.batch_mul
+                    cce_loss += loss.item()
                 _, predicted = outputs[1].max(1)
                 diciding += sum(outputs[0].eq(dicider.float()).cpu().detach().numpy().flatten())
                 total += targets.size(0)
