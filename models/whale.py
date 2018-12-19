@@ -24,3 +24,11 @@ class WhaleModelA(nn.Module):
         dicider = F.sigmoid(self.dicider(x))
         classifier = self.classifier(x)
         return dicider, classifier
+
+    def eval(self):
+        super().eval()
+        self.training = 0
+
+    def train(self, mode=True):
+        super().train(mode)
+        self.training = mode

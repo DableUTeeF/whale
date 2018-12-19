@@ -5,32 +5,39 @@ from keras.utils import Sequence
 
 
 class Generator(Sequence):
-    def __init__(self, csv, rootpath, input_size=None, batch_size=None, normalize=None):
+    def __init__(self, csv, rootpath, input_size=None, batch_size=None, normalize=None, logit=0):
         self.csv = csv
         self.rootpath = rootpath
         self.input_size = (input_size, input_size) if isinstance(input_size, int) else input_size
         self.batch_size = batch_size
         self.normalize = normalize if normalize is not None else lambda x: x
+        self.logit = logit
         self.getcls()
 
     def getcls(self):
         self.target = []
         for element in self.csv:
-            self.target.append(element[1])
+            self.target.append(element[1][0])
         self.target = sorted(list(set(self.target)))[1:]
         self.target_len = len(self.target)
 
     def get_single_image(self, idx):
+
         x = np.zeros((self.input_size[1], self.input_size[0], 3), dtype='float32')
-        img = Image.open(os.path.join(self.rootpath, self.csv[idx][0])).resize(self.input_size)
-        x[:, :, :] = np.array(img, dtype='float32')[:, :, 0:3]
+        img = Image.open(os.path.join(self.rootpath, self.csv[idx][0])).resize(self.input_size).convert('RGB')
+        x[:, :, :] = np.array(img, dtype='float32')
         if not self.batch_size:
             x = np.rollaxis(x, 2)
         x = self.normalize(x)
-        z = np.zeros(1, dtype='uint8')
+        z = np.ones(1, dtype='uint8')
         y = np.zeros(self.target_len, dtype='uint8')
-        target = self.target.index(self.csv[idx][1])
-        y[int(target)] = 1
+        if self.csv[idx][1][0] == 'new_whale':
+            z[0] = 0
+        else:
+            target = self.target.index(self.csv[idx][1][0])
+            y[int(target)] = 1
+        if not self.logit:
+            y = np.argmax(y)
         return x, z, y
 
     def __len__(self):

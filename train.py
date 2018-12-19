@@ -20,7 +20,7 @@ import models
 from torch.optim.lr_scheduler import MultiStepLR
 import time
 import datagen
-from sklearn.metrics import f1_score
+from sys import stdout
 
 
 def getmodel(cls=61):
@@ -46,13 +46,22 @@ def normalize(x):
     return x
 
 
+def printstd(args, end=None):
+    stdout.write(args)
+    if end:
+        stdout.write(end)
+    else:
+        stdout.write('\n')
+    stdout.flush()
+
+
 if __name__ == '__main__':
     colors = ['\033[0m',
               '\033[31m', '\033[32m', '\033[33m', '\033[34m', '\033[35m',
               '\033[36m', '\033[37m', '\033[91m', '\033[94m', '\033[95m']
     args = DotDict({
-        'batch_size': 32,
-        'batch_mul': 1,
+        'batch_size': 24,
+        'batch_mul': 24,
         'val_batch_size': 1,
         'cuda': True,
         'model': '',
@@ -103,17 +112,17 @@ if __name__ == '__main__':
         lists.append((id_, target.split()))
     lslength = len(lists)
     ratio = 0.8
-    train_list = lists[:int(lslength*0.8)]
-    test_list = lists[int(lslength*0.8):]
+    train_list = lists[:int(lslength * 0.8)]
+    test_list = lists[int(lslength * 0.8):]
 
     try:
         os.listdir('/root')
-        rootpath = '/root/palm/DATA/HPAIC/train'
+        rootpath = '/root/palm/DATA/whale/train'
     except PermissionError:
-        rootpath = '/media/palm/data/Human Protein Atlas/train'
+        rootpath = '/media/palm/data/whale/train'
     train_dataset = datagen.Generator(train_list,
                                       rootpath,
-                                      (512, 224),
+                                      (224, 224),
                                       normalize=normalize,
                                       )
     trainloader = torch.utils.data.DataLoader(train_dataset,
@@ -123,7 +132,7 @@ if __name__ == '__main__':
                                               pin_memory=False)
     test_dataset = datagen.Generator(test_list,
                                      rootpath,
-                                     (512, 224),
+                                     (224, 224),
                                      normalize=normalize,
                                      )
     val_loader = torch.utils.data.DataLoader(
@@ -154,16 +163,19 @@ if __name__ == '__main__':
 
     def train(epoch):
         color = colors[np.random.randint(1, len(colors))]
-        print(color+'Epoch: %d/%d' % (epoch, args.epochs))
+        print(color + 'Epoch: %d/%d' % (epoch, args.epochs))
         model.train()
-        train_loss = 0
+        bce_loss = 0
+        cce_loss = 0
         correct = 0
         total = 0
+        diciding = 0
         optimizer.zero_grad()
         start_time = time.time()
         last_time = start_time
-        for batch_idx, (inputs, targets) in enumerate(trainloader):
+        for batch_idx, (inputs, dicider, targets) in enumerate(trainloader):
             inputs, targets = inputs.to('cuda'), targets.to('cuda')
+            dicider = dicider.to('cuda')
             # inputs = normalize(inputs)
             outputs = model(inputs)
             # targets = torch.cat((targets, targets, targets, targets, targets))
@@ -171,15 +183,17 @@ if __name__ == '__main__':
             # bs, ncrops, c, h, w = inputs.size()
             # outputs = outputs.view(bs, ncrops, -1).mean(1)
 
-            loss = bcecriterion(outputs[0], targets.float()) / args.batch_mul / 2
-            loss += ccecriterion(outputs[1], targets.float()) / args.batch_mul / 2
+            if dicider.cpu().detach().numpy()[0] == 0:
+                loss = bcecriterion(outputs[0], dicider.float())
+                bce_loss += loss.item() * args.batch_mul
+            else:
+                loss = ccecriterion(outputs[1], targets.long())
+                cce_loss += loss.item() * args.batch_mul
             loss.backward()
-            train_loss += loss.item() * args.batch_mul
-            _, predicted = outputs.max(1)
+            _, predicted = outputs[1].max(1)
+            diciding += sum(outputs[0].eq(dicider.float()).cpu().detach().numpy().flatten())
             total += targets.size(0)
-            ytrue = targets.cpu().detach().numpy().flatten()
-            ypred = outputs.cpu().detach().numpy().flatten().round()
-            correct += f1_score(ytrue, ypred, average='macro')
+            correct += sum(predicted.eq(targets).cpu().detach().numpy().flatten())
             lfs = (batch_idx + 1) % args.batch_mul
             if lfs == 0:
                 optimizer.step()
@@ -193,8 +207,10 @@ if __name__ == '__main__':
             color = colors[np.random.randint(1, len(colors))]
             lss = f'{batch_idx}/{len(trainloader)} | ' + \
                   f'ETA: {format_time(step_time * (len(trainloader) - batch_idx))} - ' + \
-                  f'loss: {train_loss / (batch_idx + 1):.{3}} - ' + \
-                  f'acc: {correct / (batch_idx+1):.{5}}'
+                  f'bce_loss: {bce_loss / (batch_idx + 1):.{3}} - ' + \
+                  f'cce_loss: {cce_loss / (batch_idx + 1):.{3}} - ' + \
+                  f'dicider: {diciding / total:.{3}} - ' + \
+                  f'acc: {correct / total:.{5}}'
             print(f'\r{color}{lss}', end=colors[0])
 
         for tag, value in model.named_parameters():
@@ -202,12 +218,15 @@ if __name__ == '__main__':
             logger.histo_summary(tag, value.data.cpu().numpy(), epoch)
             logger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
         logger.scalar_summary('acc', correct / total, epoch)
-        logger.scalar_summary('loss', train_loss / (batch_idx + 1), epoch)
+        logger.scalar_summary('bce_loss', bce_loss / (batch_idx + 1), epoch)
+        logger.scalar_summary('cce_loss', cce_loss / (batch_idx + 1), epoch)
         color = colors[np.random.randint(1, len(colors))]
         print(f'\r {color}'
               f'ToT: {format_time(time.time() - start_time)} - '
-              f'loss: {train_loss / (batch_idx + 1):.{3}} - '
-              f'acc: {correct / (batch_idx + 1):.{5}}', end='')
+              f'bce_loss: {bce_loss / (batch_idx + 1):.{3}} - '
+              f'cce_loss: {cce_loss / (batch_idx + 1):.{3}} - '
+              f'dicider: {diciding / total:.{3}} - '
+              f'acc: {correct / total:.{5}}', end='')
         optimizer.step()
         optimizer.zero_grad()
         # scheduler2.step()
@@ -216,32 +235,33 @@ if __name__ == '__main__':
     def test(epoch):
         global best_acc, best_no
         model.eval()
-        test_loss = 0
+        bce_loss = 0
+        cce_loss = 0
         correct = 0
         total = 0
+        diciding = 0
         with torch.no_grad():
-            for batch_idx, (inputs, targets) in enumerate(val_loader):
+            for batch_idx, (inputs, dicider, targets) in enumerate(val_loader):
                 inputs, targets = inputs.to('cuda'), targets.to('cuda')
+                dicider = dicider.to('cuda')
                 # inputs = normalize(inputs)
                 outputs = model(inputs)
-                loss = bcecriterion(outputs[0], targets.float()) / 2
-                loss += ccecriterion(outputs[1], targets.float()) / 2
-                """"""
-                # bs, ncrops, c, h, w = inputs.size()
-                # outputs = outputs.view(bs, ncrops, -1).mean(1)
-                """"""
-                test_loss += loss.item()
-                _, predicted = outputs.max(1)
+                if dicider.cpu().detach().numpy()[0] == 0:
+                    loss = bcecriterion(outputs[0], dicider.float())
+                    bce_loss += loss.item() * args.batch_mul
+                else:
+                    loss = ccecriterion(outputs[1], targets.long())
+                    cce_loss += loss.item() * args.batch_mul
+                _, predicted = outputs[1].max(1)
+                diciding += sum(outputs[0].eq(dicider.float()).cpu().detach().numpy().flatten())
                 total += targets.size(0)
-                ytrue = targets.cpu().detach().numpy().flatten()
-                ypred = outputs.cpu().detach().numpy().flatten().round()
-                correct += f1_score(ytrue, ypred, average='macro')
+                correct += sum(predicted.eq(targets).cpu().detach().numpy().flatten())
 
                 # progress_bar(batch_idx, len(val_loader), 'Acc: %.3f%%'
                 #              % (100. * correct / total))
-        logger.scalar_summary('val_acc', correct / total, epoch)
-        logger.scalar_summary('val_loss', test_loss / (batch_idx + 1), epoch)
-        print(f'{c} - val_acc: {correct / total:.{5}}{colors[0]}')
+        logger.scalar_summary('val_bce_loss', bce_loss / (batch_idx + 1), epoch)
+        logger.scalar_summary('val_cce_loss', cce_loss / (batch_idx + 1), epoch)
+        print(f'{c} - val_acc: {correct / total:.{5}}- val_dic: {diciding / total:.{5}}{colors[0]}')
         # platue.step(correct)
 
         # Save checkpoint.
