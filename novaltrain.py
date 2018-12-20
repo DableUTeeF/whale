@@ -59,9 +59,9 @@ if __name__ == '__main__':
               '\033[31m', '\033[32m', '\033[33m', '\033[34m', '\033[35m',
               '\033[36m', '\033[37m', '\033[91m', '\033[94m', '\033[95m']
     args = DotDict({
-        'batch_size': 24,
-        'batch_mul': 1,
-        'val_batch_size': 24,
+        'batch_size': 16,
+        'batch_mul': 2,
+        'val_batch_size': 16,
         'cuda': True,
         'model': '',
         'train_plot': False,
@@ -85,8 +85,8 @@ if __name__ == '__main__':
     logger = Logger(f'./logs/{args.try_no}_{le}')
     logger.text_summary('Describe', 'DenseNet201', 0)
     logger.text_summary('Describe', 'Batch size: 32*1', 1)
-    logger.text_summary('Describe', 'Input size: 224/256', 2)
-    logger.text_summary('Describe', 'No new whale', 3)
+    logger.text_summary('Describe', 'Input size: 224,512', 2)
+    logger.text_summary('Describe', 'No validate', 3)
     best_acc = 0
     best_no = 0
     start_epoch = 1
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         rootpath = '/media/palm/data/whale/train'
     train_dataset = datagen.Generator(train_list,
                                       rootpath,
-                                      (224, 224),
+                                      (512, 224),
                                       normalize=normalize,
                                       dicider=False,
                                       new_whale=False
