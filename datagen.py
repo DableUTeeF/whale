@@ -5,20 +5,38 @@ from keras.utils import Sequence
 
 
 class Generator(Sequence):
-    def __init__(self, csv, rootpath, input_size=None, batch_size=None, normalize=None, logit=0):
-        self.csv = csv
+    def __init__(self, csv,
+                 rootpath,
+                 input_size=None,
+                 batch_size=None,
+                 normalize=None,
+                 logit=0,
+                 dicider=True,
+                 new_whale=True,
+                 ):
+        self.new_whale = new_whale
+        if self.new_whale:
+            self.csv = csv
+        else:
+            self.csv = []
+            for i in csv:
+                if i[1][0] != 'new_whale':
+                    self.csv.append(i)
         self.rootpath = rootpath
         self.input_size = (input_size, input_size) if isinstance(input_size, int) else input_size
         self.batch_size = batch_size
         self.normalize = normalize if normalize is not None else lambda x: x
         self.logit = logit
+        self.dicider = False if not new_whale else dicider
         self.getcls()
 
     def getcls(self):
         self.target = []
         for element in self.csv:
             self.target.append(element[1][0])
-        self.target = sorted(list(set(self.target)))[1:]
+        self.target = sorted(list(set(self.target)))
+        if self.dicider:
+            self.target = self.target[1:]
         self.target_len = len(self.target)
 
     def get_single_image(self, idx):
@@ -31,13 +49,15 @@ class Generator(Sequence):
         x = self.normalize(x)
         z = np.ones(1, dtype='uint8')
         y = np.zeros(self.target_len, dtype='uint8')
-        if self.csv[idx][1][0] == 'new_whale':
+        if self.csv[idx][1][0] == 'new_whale' and self.dicider:
             z[0] = 0
         else:
             target = self.target.index(self.csv[idx][1][0])
             y[int(target)] = 1
         if not self.logit:
             y = np.argmax(y)
+        if not self.dicider:
+            return x, y
         return x, z, y
 
     def __len__(self):
