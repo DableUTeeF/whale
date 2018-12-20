@@ -25,8 +25,8 @@ lslength = len(lists)
 ratio = 0.8
 # train_list = lists[:int(lslength * 0.8)]
 # test_list = lists[int(lslength * 0.8):]
-dests = ['train', 'val']
-lists = [train_list, test_list]
+dests = ['train']
+lists = [all_list]
 try:
     os.listdir('/root')
     rootpath = '/root/palm/DATA/whale/foldered'
@@ -36,11 +36,13 @@ except PermissionError:
     sourcepath = '/media/palm/data/whale/train'
 if not os.path.isdir(rootpath):
     os.mkdir(rootpath)
-for i in range(2):
+for i in range(1):
     if not os.path.isdir(os.path.join(rootpath, dests[i])):
         os.mkdir(os.path.join(rootpath, dests[i]))
     x = 0
     for key in lists[i]:
+        if key == 'new_whale':
+            continue
         for item in lists[i][key]:
             if not os.path.isdir(os.path.join(rootpath, dests[i], key)):
                 os.mkdir(os.path.join(rootpath, dests[i], key))
