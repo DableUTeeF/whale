@@ -24,7 +24,7 @@ from sys import stdout
 
 
 def getmodel(cls=61):
-    model_conv = models.densenet.densenet201(pretrained=True)
+    model_conv = models.densenet.densenet121(pretrained=True)
     num_ftrs = model_conv.classifier.in_features
     model_conv.classifier = nn.Linear(num_ftrs, cls)
     return model_conv
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         print(f'\r {color}'
               f'ToT: {format_time(time.time() - start_time)} - '
               f'cce_loss: {cce_loss / (batch_idx + 1):.{3}} - '
-              f'acc: {correct / total:.{5}}', end='')
+              f'acc: {correct / total:.{5}}{colors[0]}')
         optimizer.step()
         optimizer.zero_grad()
 
@@ -214,5 +214,5 @@ if __name__ == '__main__':
         scheduler.step()
         train(epoch)
         color = colors[np.random.randint(1, len(colors))]
-        print(f'{color}best: {best_acc}{colors[0]}')
+        # print(f'{color}best: {best_acc}{colors[0]}')
     start_epoch += args.epochs
