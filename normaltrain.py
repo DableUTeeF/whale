@@ -109,9 +109,9 @@ if __name__ == '__main__':
         id_, target = line[:-1].split(',')
         lists.append((id_, target.split()))
     lslength = len(lists)
-    ratio = 0.8
-    train_list = lists[:int(lslength * 0.8)]
-    test_list = lists[int(lslength * 0.8):]
+    ratio = 0.99
+    train_list = lists[:int(lslength * ratio)]
+    test_list = lists[int(lslength * ratio):]
 
     try:
         os.listdir('/root')
